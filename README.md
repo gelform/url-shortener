@@ -7,13 +7,21 @@
 ## Requirements:
 * PHP (with the `mysqlnd` driver — default in PHP 5.4+)
 * mysqli
-* htaccess
+* A webserver rewrite: Apache `.htaccess` (included) or an nginx location block (see below).
 
 ## Installation
 1. Create a database.
 2. Run the `setup.sql` and confirm that a table called `link` was created.
 3. Edit `index.php` and fill in `DOMAIN` and the four `DB_*` constants at the top of the file.
-4. Add the `.htaccess` and `index.php` files to the webroot. Visiting your web root with no query args or path should return `404`. It's working!
+4. Add `index.php` to the webroot, plus the rewrite config for your webserver:
+   * **Apache**: drop in the included `.htaccess`.
+   * **Nginx**: add the location block below to your server config and reload nginx (`nginx -t && systemctl reload nginx`). Nginx does not read `.htaccess`.
+     ```nginx
+     location ~ ^/([a-zA-Z0-9]+)$ {
+         try_files $uri /index.php?slug=$1;
+     }
+     ```
+5. Visiting your web root with no query args or path should return `404`. It's working!
 
 ## Instructions
 
