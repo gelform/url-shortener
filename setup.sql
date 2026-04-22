@@ -18,30 +18,11 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE `link` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `slug` varchar(10) NOT NULL,
-  `url` varchar(256) NOT NULL,
-  `created_dt` datetime NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+  `url` varchar(2048) NOT NULL,
+  `created_dt` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
---
--- Indexes for dumped tables
---
-
---
--- Indexes for table `link`
---
-ALTER TABLE `link`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `id` (`id`);
-
---
--- AUTO_INCREMENT for dumped tables
---
-
---
--- AUTO_INCREMENT for table `link`
---
-ALTER TABLE `link`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 COMMIT;
