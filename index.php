@@ -42,7 +42,7 @@ if (!empty($_GET['url'])) {
 		done('error url', 400);
 	}
 
-	if (strlen($url) > 2048) {
+	if (mb_strlen($url, 'UTF-8') > 2048) {
 		done('error url too long', 400);
 	}
 
