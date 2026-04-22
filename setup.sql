@@ -19,10 +19,11 @@ SET time_zone = "+00:00";
 
 CREATE TABLE `link` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `slug` varchar(10) NOT NULL,
+  `slug` varchar(64) NOT NULL,
   `url` varchar(2048) NOT NULL,
   `created_dt` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug_unique` (`slug`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 COMMIT;

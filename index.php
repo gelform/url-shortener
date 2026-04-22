@@ -46,18 +46,42 @@ if (!empty($_GET['url'])) {
 		done('error url too long', 400);
 	}
 
-	$slug = substr(md5(uniqid('', true)), -10);
+	// Custom slug if provided; otherwise random 10-char slug.
+	if (!empty($_GET['slug'])) {
+		$slug = $_GET['slug'];
+
+		// Must match the .htaccess rewrite charset and fit the column.
+		if (!preg_match('/^[a-zA-Z0-9]{1,64}$/', $slug)) {
+			done('error slug', 400);
+		}
+
+		$stmt = $conn->prepare('SELECT 1 FROM link WHERE slug = ? LIMIT 1');
+		$stmt->bind_param('s', $slug);
+		$stmt->execute();
+		$taken = (bool) $stmt->get_result()->fetch_row();
+		$stmt->close();
+
+		if ($taken) {
+			done('error slug taken', 409);
+		}
+	} else {
+		$slug = substr(md5(uniqid('', true)), -10);
+	}
 
 	$stmt = $conn->prepare('INSERT INTO link (slug, url) VALUES (?, ?)');
 	$stmt->bind_param('ss', $slug, $url);
 
 	if ($stmt->execute()) {
-		$id = $stmt->insert_id;
 		$stmt->close();
-		done(sprintf('%s/%d%s', DOMAIN, $id, $slug));
+		done(sprintf('%s/%s', DOMAIN, $slug));
 	}
 
+	// Unique-key violation (race between the taken-check and INSERT).
+	$errno = $stmt->errno;
 	$stmt->close();
+	if ($errno === 1062) {
+		done('error slug taken', 409);
+	}
 	done('error insert', 500);
 }
 
@@ -69,19 +93,17 @@ if (empty($_GET['slug'])) {
 }
 
 /**
- * Find url from slug and id.
+ * Find url from slug.
  */
-$id = (int) substr($_GET['slug'], 0, -10);
-$slug = substr($_GET['slug'], -10);
+$slug = $_GET['slug'];
 
-$stmt = $conn->prepare('SELECT slug, url FROM link WHERE id = ? LIMIT 1');
-$stmt->bind_param('i', $id);
+$stmt = $conn->prepare('SELECT url FROM link WHERE slug = ? LIMIT 1');
+$stmt->bind_param('s', $slug);
 $stmt->execute();
 $row = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-// Timing-safe compare so the slug guard can't be brute-forced by timing.
-if (!$row || !hash_equals($row['slug'], $slug)) {
+if (!$row) {
 	done('404', 404);
 }
 
