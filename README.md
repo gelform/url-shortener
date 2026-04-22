@@ -30,7 +30,7 @@
 * You should see a shortened url e.g. `yourdomain.com/aw3se4dr5t`.
 
 ### Shorten a url with a custom slug
-* Append `&slug=your-slug` to choose the short URL's path, e.g. `yourdomain.com?url=https://twitter.com/gelform&slug=twitter`.
+* Append `&slug=yourslug` to choose the short URL's path, e.g. `yourdomain.com?url=https://twitter.com/gelform&slug=twitter`.
 * Slugs must be 1–64 alphanumeric characters (`a-z`, `A-Z`, `0-9`).
 * If the slug is already taken you'll get a `409 error slug taken`.
 
