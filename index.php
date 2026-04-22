@@ -46,42 +46,83 @@ if (!empty($_GET['url'])) {
 		done('error url too long', 400);
 	}
 
-	$slug = substr(md5(uniqid('', true)), -10);
+	// Custom slug if provided; otherwise random 10-char slug.
+	$custom_slug = isset($_GET['slug']) && $_GET['slug'] !== '';
 
-	$stmt = $conn->prepare('INSERT INTO link (slug, url) VALUES (?, ?)');
-	$stmt->bind_param('ss', $slug, $url);
+	if ($custom_slug) {
+		$slug = $_GET['slug'];
 
-	if ($stmt->execute()) {
-		$id = $stmt->insert_id;
+		// Must match the webserver rewrite charset and fit the column.
+		if (!preg_match('/^[a-zA-Z0-9]{1,64}$/', $slug)) {
+			done('error slug', 400);
+		}
+
+		$stmt = $conn->prepare('SELECT 1 FROM link WHERE slug = ? LIMIT 1');
+		$stmt->bind_param('s', $slug);
+		$stmt->execute();
+		$taken = (bool) $stmt->get_result()->fetch_row();
 		$stmt->close();
-		done(sprintf('%s/%d%s', DOMAIN, $id, $slug));
+
+		if ($taken) {
+			done('error slug taken', 409);
+		}
 	}
 
-	$stmt->close();
+	// INSERT with retry for auto-generated slug collisions (astronomically
+	// rare with 10 hex chars, but the UNIQUE index makes 1062 possible).
+	$insert = $conn->prepare('INSERT INTO link (slug, url) VALUES (?, ?)');
+	$max_attempts = $custom_slug ? 1 : 5;
+
+	for ($attempt = 0; $attempt < $max_attempts; $attempt++) {
+		if (!$custom_slug) {
+			$slug = substr(md5(uniqid('', true)), -10);
+		}
+		$insert->bind_param('ss', $slug, $url);
+		if ($insert->execute()) {
+			$insert->close();
+			done(sprintf('%s/%s', DOMAIN, $slug));
+		}
+		if ($insert->errno !== 1062) {
+			break;
+		}
+	}
+
+	$errno = $insert->errno;
+	$insert->close();
+	// A 1062 here for a custom slug means we lost the race with another
+	// request; for an auto slug it means 5 consecutive collisions (treat
+	// as server error since it implies something else is wrong).
+	if ($custom_slug && $errno === 1062) {
+		done('error slug taken', 409);
+	}
 	done('error insert', 500);
 }
 
 /**
  * No slug, 404.
  */
-if (empty($_GET['slug'])) {
+if (!isset($_GET['slug']) || $_GET['slug'] === '') {
 	done('404', 404);
 }
 
 /**
- * Find url from slug and id.
+ * Find url from slug.
  */
-$id = (int) substr($_GET['slug'], 0, -10);
-$slug = substr($_GET['slug'], -10);
+$slug = $_GET['slug'];
 
-$stmt = $conn->prepare('SELECT slug, url FROM link WHERE id = ? LIMIT 1');
-$stmt->bind_param('i', $id);
+// Same charset/length constraints as create — direct ?slug= calls bypass the
+// webserver rewrite, so don't send junk to the DB.
+if (!preg_match('/^[a-zA-Z0-9]{1,64}$/', $slug)) {
+	done('404', 404);
+}
+
+$stmt = $conn->prepare('SELECT url FROM link WHERE slug = ? LIMIT 1');
+$stmt->bind_param('s', $slug);
 $stmt->execute();
 $row = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-// Timing-safe compare so the slug guard can't be brute-forced by timing.
-if (!$row || !hash_equals($row['slug'], $slug)) {
+if (!$row) {
 	done('404', 404);
 }
 
